@@ -1,0 +1,17 @@
+{
+  "name": "온라인 손난로",
+  "short_name": "손난로",
+  "description": "함께 모여 따뜻하게, 전 세계와 연결된 디지털 손난로",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#ff6b6b",
+  "background_color": "#ff8e53",
+  "display": "standalone",
+  "start_url": "/",
+  "orientation": "portrait"
+}

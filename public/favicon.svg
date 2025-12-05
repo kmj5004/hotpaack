@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="fireGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FF6347;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF4500;stop-opacity:1" />
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- 배경 원 -->
+  <circle cx="50" cy="50" r="48" fill="#FF6B6B" opacity="0.3"/>
+  
+  <!-- 불꽃 모양 -->
+  <g filter="url(#glow)">
+    <!-- 메인 불꽃 -->
+    <path d="M 50 15 Q 40 30, 45 45 Q 42 55, 50 65 Q 58 55, 55 45 Q 60 30, 50 15 Z" 
+          fill="url(#fireGradient)" stroke="#FF4500" stroke-width="1"/>
+    
+    <!-- 왼쪽 불꽃 -->
+    <path d="M 35 35 Q 30 45, 33 55 Q 31 62, 38 68 Q 43 62, 42 55 Q 43 45, 35 35 Z" 
+          fill="url(#fireGradient)" stroke="#FF6347" stroke-width="0.5" opacity="0.8"/>
+    
+    <!-- 오른쪽 불꽃 -->
+    <path d="M 65 35 Q 70 45, 67 55 Q 69 62, 62 68 Q 57 62, 58 55 Q 57 45, 65 35 Z" 
+          fill="url(#fireGradient)" stroke="#FF6347" stroke-width="0.5" opacity="0.8"/>
+    
+    <!-- 중앙 밝은 부분 -->
+    <ellipse cx="50" cy="50" rx="8" ry="12" fill="#FFFF00" opacity="0.6"/>
+    <ellipse cx="50" cy="48" rx="5" ry="8" fill="#FFFFFF" opacity="0.8"/>
+  </g>
+  
+  <!-- 열기 표현 (파동) -->
+  <g opacity="0.3">
+    <ellipse cx="50" cy="75" rx="30" ry="4" fill="#FF6B6B"/>
+    <ellipse cx="50" cy="78" rx="25" ry="3" fill="#FF8E53"/>
+    <ellipse cx="50" cy="81" rx="20" ry="2" fill="#FFA07A"/>
+  </g>
+  
+  <!-- 불똥 -->
+  <circle cx="45" cy="25" r="1.5" fill="#FFD700" opacity="0.9">
+    <animate attributeName="cy" values="25;20;25" dur="1s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="55" cy="20" r="1" fill="#FFA500" opacity="0.9">
+    <animate attributeName="cy" values="20;15;20" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="50" cy="18" r="1.2" fill="#FF6347" opacity="0.9">
+    <animate attributeName="cy" values="18;12;18" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

@@ -5,6 +5,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔥 온라인 손난로 - 함께 따뜻하게</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/site.webmanifest">
+
+    <!-- Meta Tags -->
+    <meta name="description" content="CPU와 GPU를 활용한 디지털 손난로. 전 세계 사람들과 함께 따뜻함을 나눠보세요!">
+    <meta name="keywords" content="손난로, 온라인, CPU, GPU, 발열, 겨울, 따뜻함">
+    <meta name="theme-color" content="#ff6b6b">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="🔥 온라인 손난로">
+    <meta property="og:description" content="전 세계와 연결된 디지털 손난로. 함께 모여 따뜻하게!">
+    <meta property="og:type" content="website">
+
+    <!-- PWA -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="손난로">
+
     <style>
         * {
             margin: 0;
@@ -77,6 +98,8 @@
             border-radius: 20px;
             max-width: 500px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             animation: slideDown 0.4s ease;
             border: 2px solid rgba(255, 107, 107, 0.3);
@@ -817,6 +840,54 @@
 
             .stat-value {
                 font-size: 1.1em;
+            }
+
+            /* Modal mobile optimization */
+            .modal-content {
+                width: 95%;
+                max-height: 85vh;
+            }
+
+            .modal-header {
+                padding: 20px 15px;
+            }
+
+            .modal-header h2 {
+                font-size: 1.4em;
+            }
+
+            .warning-icon {
+                font-size: 3em;
+            }
+
+            .modal-body {
+                padding: 20px 15px;
+            }
+
+            .modal-body p {
+                font-size: 0.95em;
+            }
+
+            .modal-body li {
+                font-size: 0.9em;
+                padding: 8px;
+            }
+
+            .modal-agreement {
+                padding: 15px;
+            }
+
+            .modal-agreement label {
+                font-size: 0.85em;
+            }
+
+            .modal-footer {
+                padding: 15px;
+            }
+
+            .modal-btn {
+                padding: 12px 25px;
+                font-size: 1em;
             }
         }
     </style>
