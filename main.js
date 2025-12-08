@@ -5,8 +5,10 @@ let totalOperations = 0;
 let myHeatGenerated = 0; // 내가 생성한 발열량 (칼로리)
 
 // 서버 설정
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
+// @ts-ignore - Vite env variables
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+// @ts-ignore - Vite env variables
+const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:8000';
 
 // WebSocket 연결
 let socket = null;
