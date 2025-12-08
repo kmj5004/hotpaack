@@ -429,39 +429,55 @@ window.addEventListener('beforeunload', () => {
 
 // Memory stress test - allocates and manipulates large arrays
 function startMemoryStress(intensity) {
-    const interval = Math.max(1000, 3000 - intensity * 150); // 더 긴 간격
+    const interval = Math.max(2000, 5000 - intensity * 200); // 더 긴 간격으로 변경
 
     memoryStressInterval = setInterval(() => {
         // requestIdleCallback 사용으로 UI 블로킹 방지
         const runTask = () => {
-            // Allocate memory
-            const size = intensity * 30000; // 크기 감소
+            // 낮은 강도에서는 스킵
+            if (intensity < 5) return;
+            
+            // Allocate memory (크기 더 감소)
+            const size = Math.min(intensity * 10000, 100000); // 최대 크기 제한
             const arr = new Array(size);
 
-            // Fill with random data
-            for (let i = 0; i < size; i++) {
-                arr[i] = Math.random() * 1000000;
-            }
-
-            // Perform operations
-            arr.sort((a, b) => a - b);
-            const sum = arr.reduce((acc, val) => acc + val, 0);
-            const avg = sum / arr.length;
+            // Fill with random data (청크로 나눠서 처리)
+            const chunkSize = 1000;
+            let index = 0;
+            
+            const fillChunk = () => {
+                const end = Math.min(index + chunkSize, size);
+                for (let i = index; i < end; i++) {
+                    arr[i] = Math.random() * 1000000;
+                }
+                index = end;
+                
+                if (index < size) {
+                    // 다음 청크는 다음 프레임에
+                    requestAnimationFrame(fillChunk);
+                } else {
+                    // 정렬은 생략 (너무 무거움)
+                    const sum = arr.reduce((acc, val) => acc + val, 0);
+                    const avg = sum / arr.length;
+                }
+            };
+            
+            fillChunk();
 
             // Keep some arrays in memory
             memoryArrays.push(arr);
 
             // Limit memory usage
-            if (memoryArrays.length > intensity) {
+            if (memoryArrays.length > Math.min(intensity, 3)) {
                 memoryArrays.shift();
             }
         };
 
         // UI가 한가할 때 실행
         if (window.requestIdleCallback) {
-            requestIdleCallback(runTask);
+            requestIdleCallback(runTask, { timeout: 1000 });
         } else {
-            runTask();
+            setTimeout(runTask, 0);
         }
     }, interval);
 }
@@ -476,28 +492,34 @@ function stopMemoryStress() {
 
 // Crypto mining simulation - SHA-256 like operations
 function startCryptoMining(intensity) {
-    const interval = Math.max(300, 1500 - intensity * 80); // 더 긴 간격
+    const interval = Math.max(500, 2000 - intensity * 100); // 더 긴 간격
 
     cryptoMiningInterval = setInterval(() => {
-        const iterations = intensity * 300; // 반복 감소
+        // 낮은 강도에서는 스킵
+        if (intensity < 5) return;
+        
+        // requestAnimationFrame으로 프레임 단위 처리
+        requestAnimationFrame(() => {
+            const iterations = Math.min(intensity * 100, 500); // 반복 더 감소
 
-        for (let i = 0; i < iterations; i++) {
-            let hash = i.toString();
+            for (let i = 0; i < iterations; i++) {
+                let hash = i.toString();
 
-            // Simulate hash computation
-            for (let j = 0; j < 10; j++) {
-                let temp = 0;
-                for (let k = 0; k < hash.length; k++) {
-                    temp = ((temp << 5) - temp) + hash.charCodeAt(k);
-                    temp = temp & temp;
+                // Simulate hash computation (라운드 감소)
+                for (let j = 0; j < 5; j++) { // 10 → 5로 감소
+                    let temp = 0;
+                    for (let k = 0; k < hash.length; k++) {
+                        temp = ((temp << 5) - temp) + hash.charCodeAt(k);
+                        temp = temp & temp;
+                    }
+                    hash = Math.abs(temp).toString(36);
                 }
-                hash = Math.abs(temp).toString(36);
-            }
 
-            // Additional computation
-            const result = parseInt(hash, 36);
-            Math.pow(result % 1000, 3);
-        }
+                // Additional computation
+                const result = parseInt(hash, 36);
+                Math.pow(result % 1000, 2); // 제곱 감소 (3 → 2)
+            }
+        });
     }, interval);
 }
 
@@ -511,12 +533,15 @@ function stopCryptoMining() {
 // Audio processing - creates oscillators for CPU load
 function startAudioProcessing(intensity) {
     try {
+        // 강도 5 이하에서는 오디오 생략
+        if (intensity < 5) return;
+        
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
 
         // Create fewer oscillators to reduce lag
-        const oscillatorCount = Math.min(intensity, 5); // 최대 5개로 제한
+        const oscillatorCount = Math.min(Math.floor(intensity / 2), 3); // 더 적게 생성
         for (let i = 0; i < oscillatorCount; i++) {
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();

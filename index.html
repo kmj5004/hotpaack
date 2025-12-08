@@ -48,9 +48,10 @@
 
         body.heating {
             background: linear-gradient(135deg, #ff4757 0%, #ff6348 100%);
-            animation: bg-pulse 3s ease-in-out infinite;
+            /* 애니메이션 제거 - 성능 개선 */
         }
 
+        /* 애니메이션 제거
         @keyframes bg-pulse {
 
             0%,
@@ -62,6 +63,7 @@
                 filter: brightness(1.1);
             }
         }
+        */
 
         /* Modal Styles */
         .modal-overlay {
@@ -300,20 +302,19 @@
                 0 0 100px rgba(255, 142, 83, 0.6),
                 inset 0 -5px 20px rgba(0, 0, 0, 0.2),
                 inset 0 5px 20px rgba(255, 255, 255, 0.3);
-            animation: warmer-glow 2s ease-in-out infinite;
+            /* 애니메이션 최적화: GPU 가속만 사용 */
+            animation: warmer-glow-optimized 2s ease-in-out infinite;
         }
 
-        @keyframes warmer-glow {
+        @keyframes warmer-glow-optimized {
 
             0%,
             100% {
-                filter: brightness(1);
-                transform: scale(1);
+                transform: scale(1) translateZ(0);
             }
 
             50% {
-                filter: brightness(1.1);
-                transform: scale(1.01);
+                transform: scale(1.01) translateZ(0);
             }
         }
 
