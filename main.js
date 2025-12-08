@@ -348,10 +348,10 @@ function startWarmer() {
         workers.push(worker);
     }
 
-    // GPU 가속 시작
-    if (window.GPUWorker) {
-        window.GPUWorker.start(intensity);
-    }
+    // GPU 가속 시작 (제거됨)
+    // if (window.GPUWorker) {
+    //     window.GPUWorker.start(intensity);
+    // }
 
     // Additional heat generators
     startMemoryStress(intensity);
@@ -377,10 +377,10 @@ function stopWarmer() {
 
     workers = [];
 
-    // GPU 가속 중지
-    if (window.GPUWorker) {
-        window.GPUWorker.stop();
-    }
+    // GPU 가속 중지 (제거됨)
+    // if (window.GPUWorker) {
+    //     window.GPUWorker.stop();
+    // }
 
     // Stop additional heat generators
     stopMemoryStress();
