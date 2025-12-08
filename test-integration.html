@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Hotpack API 연동 테스트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.connected {
+            background: #4caf50;
+        }
+        .status.disconnected {
+            background: #f44336;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        button {
+            padding: 12px 25px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #4caf50;
+            padding-left: 10px;
+        }
+        .log-entry.error {
+            border-left-color: #f44336;
+        }
+        .chat-input {
+            width: 70%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            margin-right: 10px;
+        }
+        #userId {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 Hotpack API 연동 테스트</h1>
+
+    <div class="container">
+        <h2>
+            연결 상태: 
+            <span class="status disconnected" id="connectionStatus">연결 안 됨</span>
+        </h2>
+        <p>User ID: <span id="userId">-</span></p>
+        <button onclick="connectSocket()">연결</button>
+        <button onclick="disconnectSocket()">연결 해제</button>
+    </div>
+
+    <div class="container">
+        <h2>📊 실시간 통계</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">👥 현재 접속자</div>
+                <div class="stat-value" id="onlineUsers">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">📊 오늘 방문자</div>
+                <div class="stat-value" id="todayVisitors">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🌟 누적 사용자</div>
+                <div class="stat-value" id="totalUsers">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🔥 전 세계 발열량</div>
+                <div class="stat-value" id="globalHeat">0 cal</div>
+            </div>
+        </div>
+        <button onclick="loadStats()">통계 새로고침</button>
+    </div>
+
+    <div class="container">
+        <h2>🔥 발열량 테스트</h2>
+        <button onclick="sendHeat()">발열량 전송 (0.05 cal)</button>
+        <button onclick="startAutoHeat()">자동 발열 시작</button>
+        <button onclick="stopAutoHeat()">자동 발열 중지</button>
+        <p>내 발열량: <span id="myHeat">0</span> cal</p>
+    </div>
+
+    <div class="container">
+        <h2>💬 채팅 테스트</h2>
+        <input type="text" class="chat-input" id="chatInput" placeholder="메시지를 입력하세요..." maxlength="100">
+        <button onclick="sendChat()">전송</button>
+        <h3>최근 메시지:</h3>
+        <div class="log" id="chatLog"></div>
+    </div>
+
+    <div class="container">
+        <h2>📋 이벤트 로그</h2>
+        <button onclick="clearLog()">로그 지우기</button>
+        <div class="log" id="eventLog"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/3.1.3/socket.io.min.js"></script>
+    <script>
+        const SERVER_URL = 'http://43.201.10.146:8000';
+        let socket = null;
+        let userId = null;
+        let myHeat = 0;
+        let autoHeatInterval = null;
+
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('eventLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (isError ? ' error' : '');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('eventLog').innerHTML = '';
+        }
+
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.textContent = '연결됨';
+                status.className = 'status connected';
+            } else {
+                status.textContent = '연결 안 됨';
+                status.className = 'status disconnected';
+            }
+        }
+
+        function connectSocket() {
+            if (socket && socket.connected) {
+                log('이미 연결되어 있습니다.');
+                return;
+            }
+
+            log('서버에 연결 중...');
+            socket = io(SERVER_URL, {
+                transports: ['websocket', 'polling']
+            });
+
+            socket.on('connect', () => {
+                log('✅ 서버에 연결되었습니다!');
+                updateConnectionStatus(true);
+            });
+
+            socket.on('user:connected', (data) => {
+                userId = data.userId;
+                document.getElementById('userId').textContent = userId;
+                log(`사용자 ID 받음: ${userId}`);
+            });
+
+            socket.on('stats:online-users', (data) => {
+                document.getElementById('onlineUsers').textContent = data.count;
+                log(`온라인 사용자 수 업데이트: ${data.count}`);
+            });
+
+            socket.on('stats:global-heat', (data) => {
+                document.getElementById('globalHeat').textContent = data.globalHeat.toFixed(2) + ' cal';
+                log(`전 세계 발열량 업데이트: ${data.globalHeat.toFixed(2)} cal`);
+            });
+
+            socket.on('chat:new-message', (data) => {
+                const chatLog = document.getElementById('chatLog');
+                const msg = document.createElement('div');
+                msg.className = 'log-entry';
+                const time = new Date(data.timestamp).toLocaleTimeString();
+                msg.textContent = `[${time}] ${data.text}`;
+                chatLog.appendChild(msg);
+                chatLog.scrollTop = chatLog.scrollHeight;
+                log(`새 채팅 메시지: ${data.text}`);
+            });
+
+            socket.on('disconnect', () => {
+                log('❌ 서버 연결이 끊어졌습니다.');
+                updateConnectionStatus(false);
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`연결 오류: ${error.message}`, true);
+                updateConnectionStatus(false);
+            });
+        }
+
+        function disconnectSocket() {
+            if (socket) {
+                socket.disconnect();
+                log('연결을 종료했습니다.');
+                updateConnectionStatus(false);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                log('통계 로드 중...');
+                const response = await fetch(`${SERVER_URL}/api/stats/all`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('onlineUsers').textContent = data.data.onlineUsers;
+                    document.getElementById('todayVisitors').textContent = data.data.todayVisitors;
+                    document.getElementById('totalUsers').textContent = data.data.totalUsers;
+                    document.getElementById('globalHeat').textContent = data.data.globalHeat.toFixed(2) + ' cal';
+                    log('✅ 통계 로드 완료');
+                }
+            } catch (error) {
+                log(`통계 로드 실패: ${error.message}`, true);
+            }
+        }
+
+        async function sendHeat() {
+            if (!userId) {
+                log('먼저 서버에 연결하세요!', true);
+                return;
+            }
+
+            try {
+                const heat = 0.05;
+                myHeat += heat;
+                document.getElementById('myHeat').textContent = myHeat.toFixed(2);
+
+                const response = await fetch(`${SERVER_URL}/api/heat/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        heatGenerated: heat,
+                        operations: 5000
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    log(`✅ 발열량 전송 성공: ${heat} cal`);
+                }
+            } catch (error) {
+                log(`발열량 전송 실패: ${error.message}`, true);
+            }
+        }
+
+        function startAutoHeat() {
+            if (autoHeatInterval) {
+                log('이미 자동 발열이 실행 중입니다.');
+                return;
+            }
+            log('🔥 자동 발열 시작!');
+            autoHeatInterval = setInterval(sendHeat, 1000);
+        }
+
+        function stopAutoHeat() {
+            if (autoHeatInterval) {
+                clearInterval(autoHeatInterval);
+                autoHeatInterval = null;
+                log('🛑 자동 발열 중지');
+            }
+        }
+
+        async function sendChat() {
+            if (!userId) {
+                log('먼저 서버에 연결하세요!', true);
+                return;
+            }
+
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            
+            if (!text) {
+                log('메시지를 입력하세요!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SERVER_URL}/api/chat/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        text: text,
+                        timestamp: Date.now()
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    log('✅ 채팅 메시지 전송 완료');
+                    input.value = '';
+                }
+            } catch (error) {
+                log(`채팅 전송 실패: ${error.message}`, true);
+            }
+        }
+
+        // Enter 키로 채팅 전송
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChat();
+            }
+        });
+
+        // 페이지 로드 시 자동 연결 및 통계 로드
+        window.addEventListener('load', () => {
+            log('페이지 로드 완료');
+            loadStats();
+            setTimeout(() => {
+                connectSocket();
+            }, 500);
+        });
+
+        // 페이지 언로드 시 연결 종료
+        window.addEventListener('beforeunload', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+            if (autoHeatInterval) {
+                clearInterval(autoHeatInterval);
+            }
+        });
+    </script>
+</body>
+</html>

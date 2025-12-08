@@ -17,6 +17,7 @@
 ### 👥 실시간 소셜 기능
 - **현재 접속자 수**: 지금 이 순간 함께 있는 사람들
 - **오늘 방문자**: 오늘 하루 방문한 총 인원
+- **누적 사용자 수**: 서비스 시작 이후 총 방문자 수 (NEW!)
 - **내 발열량**: 내가 생성한 칼로리 추적
 - **전 세계 누적 발열량**: 모두가 함께 만든 따뜻함
 
@@ -32,7 +33,18 @@
 
 ## 🚀 시작하기
 
-### 로컬 개발
+### 전체 시스템 구성
+
+이 프로젝트는 **프론트엔드**와 **백엔드 서버**로 구성됩니다:
+- **프론트엔드**: Vite 기반 정적 사이트
+- **백엔드**: Node.js + Socket.io 실시간 서버 (별도 구축 필요)
+
+### 백엔드 서버 구축
+
+서버 요구사항 및 API 명세서를 확인하세요:
+- **[SERVER_REQUIREMENTS.md](SERVER_REQUIREMENTS.md)** - 서버 구축 가이드 및 API 명세서
+
+### 프론트엔드 로컬 개발
 
 ```bash
 # 저장소 클론
@@ -42,11 +54,12 @@ cd cpu_killer
 # 의존성 설치
 npm install
 
+# 환경 변수 설정
+cp .env.example .env
+# .env 파일을 열어 서버 URL을 설정하세요
+
 # 개발 서버 시작
 npm run dev
-
-# 또는 간단한 HTTP 서버
-python3 -m http.server 8000
 ```
 
 ### 빌드
@@ -59,34 +72,32 @@ npm run build
 
 ## 🔧 기술 스택
 
+### Frontend
 - **Frontend**: Vanilla JavaScript, CSS3
 - **Workers**: Web Workers (백그라운드 CPU 작업)
 - **GPU**: WebGL 2.0 (GPU 가속)
-- **Backend**: Firebase Realtime Database (무료 플랜)
 - **Build**: Vite
-- **Deploy**: Netlify / GitHub Pages / Vercel
+- **Deploy**: Netlify / Vercel
 
-## 📦 Firebase 설정
-
-1. [Firebase Console](https://console.firebase.google.com/) 접속
-2. 새 프로젝트 생성
-3. Realtime Database 생성 (테스트 모드)
-4. `main.js`의 `firebaseConfig` 수정
-
-자세한 설정 방법은 [FIREBASE_SETUP.md](FIREBASE_SETUP.md) 참고
+### Backend (별도 구축 필요)
+- **Runtime**: Node.js + Express
+- **실시간 통신**: Socket.io
+- **데이터베이스**: Redis + PostgreSQL/MySQL
+- **Deploy**: Docker 권장
 
 ## 🌐 배포
 
-### Netlify (추천)
+### 프론트엔드 배포 (Netlify)
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)
 
-자세한 배포 가이드는 [DEPLOYMENT.md](DEPLOYMENT.md) 참고
+환경 변수 설정:
+- `VITE_SERVER_URL`: 백엔드 서버 URL
+- `VITE_WS_URL`: WebSocket 서버 URL
 
-### GitHub Secrets 설정
+### 백엔드 배포
 
-- `NETLIFY_AUTH_TOKEN`: Netlify 개인 액세스 토큰
-- `NETLIFY_SITE_ID`: Netlify 사이트 ID
+[SERVER_REQUIREMENTS.md](SERVER_REQUIREMENTS.md) 문서를 참고하여 서버를 구축하고 배포하세요.
 
 ## 📊 성능
 
@@ -128,7 +139,7 @@ MIT License - 자세한 내용은 [LICENSE](LICENSE) 파일을 참고하세요.
 
 ## 🙏 감사의 말
 
-- Firebase - 무료 실시간 데이터베이스
+- Socket.io - 실시간 통신
 - Netlify - 무료 호스팅
 - Vite - 빠른 빌드 도구
 

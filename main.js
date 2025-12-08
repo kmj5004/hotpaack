@@ -4,22 +4,15 @@ let isRunning = false;
 let totalOperations = 0;
 let myHeatGenerated = 0; // 내가 생성한 발열량 (칼로리)
 
-// Firebase 설정
-const firebaseConfig = {
-    apiKey: "AIzaSyDemoKey123456789",
-    authDomain: "cpu-killer-demo.firebaseapp.com",
-    databaseURL: "https://cpu-killer-demo-default-rtdb.firebaseio.com",
-    projectId: "cpu-killer-demo"
-};
+// 서버 설정
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 
-// Firebase 초기화
-let database = null;
-let userRef = null;
-let onlineUsersRef = null;
-let globalStatsRef = null;
-let chatRef = null;
-let todayVisitorsRef = null;
-let myConnectionId = null;
+// WebSocket 연결
+let socket = null;
+let myUserId = null;
+let heatUpdateQueue = 0;
+let lastHeatUpdate = 0;
 
 // Additional heat generators
 let memoryStressInterval = null;
@@ -27,18 +20,18 @@ let cryptoMiningInterval = null;
 let audioContext = null;
 let memoryArrays = [];
 
+// 서버 연결 초기화
 try {
-    if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        database = firebase.database();
-        initializePresence();
-        initializeGlobalStats();
-        initializeChat();
+    if (typeof io !== 'undefined') {
+        socket = io(SERVER_URL);
+        initializeConnection();
+        initializeEventHandlers();
+        loadInitialData();
     } else {
-        console.log('Firebase가 로드되지 않았습니다. 오프라인 모드로 실행됩니다.');
+        console.log('Socket.io가 로드되지 않았습니다. 오프라인 모드로 실행됩니다.');
     }
 } catch (error) {
-    console.log('Firebase 초기화 실패. 로컬 모드로 실행됩니다.', error);
+    console.log('서버 연결 실패. 로컬 모드로 실행됩니다.', error);
 }
 
 // Modal handling - MANDATORY AGREEMENT
@@ -47,7 +40,16 @@ function initModal() {
     const acceptBtn = document.getElementById('modalAccept');
     const agreeCheckbox = document.getElementById('agreeTerms');
 
-    // Always show modal - no bypass
+    // 이전에 동의한 적이 있는지 확인
+    const hasAgreed = localStorage.getItem('hotpack_terms_agreed');
+    
+    if (hasAgreed === 'true') {
+        // 이미 동의한 경우 모달을 표시하지 않음
+        modal.classList.add('hidden');
+        return;
+    }
+
+    // 동의하지 않은 경우 모달 표시
     modal.classList.remove('hidden');
 
     // Enable button only when checkbox is checked
@@ -57,6 +59,9 @@ function initModal() {
 
     acceptBtn.addEventListener('click', () => {
         if (agreeCheckbox.checked) {
+            // localStorage에 동의 상태 저장
+            localStorage.setItem('hotpack_terms_agreed', 'true');
+            localStorage.setItem('hotpack_terms_agreed_date', new Date().toISOString());
             modal.classList.add('hidden');
         } else {
             alert('사용하시려면 동의 항목에 체크해주세요.');
@@ -87,80 +92,72 @@ if (document.readyState === 'loading') {
     initModal();
 }
 
-function initializePresence() {
+function initializeConnection() {
+    socket.on('connect', () => {
+        console.log('✅ 서버 연결 성공');
+        myUserId = socket.id;
+    });
+
+    socket.on('disconnect', () => {
+        console.log('❌ 서버 연결 끊김');
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('연결 오류:', error);
+    });
+}
+
+function initializeEventHandlers() {
+    // 온라인 사용자 수 업데이트
+    socket.on('stats:online-users', (data) => {
+        document.getElementById('onlineUsers').textContent = data.count;
+    });
+
+    // 전 세계 발열량 업데이트
+    socket.on('stats:global-heat', (data) => {
+        document.getElementById('globalHeat').textContent = formatHeat(data.globalHeat);
+    });
+
+    // 새 채팅 메시지
+    socket.on('chat:new-message', (data) => {
+        addChatMessage(data.text, data.timestamp);
+    });
+}
+
+async function loadInitialData() {
     try {
-        myConnectionId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        // 전체 통계 로드
+        const statsResponse = await fetch(`${SERVER_URL}/api/stats/all`);
+        const statsData = await statsResponse.json();
+        
+        if (statsData.success) {
+            const { onlineUsers, todayVisitors, totalUsers, globalHeat } = statsData.data;
+            document.getElementById('onlineUsers').textContent = onlineUsers;
+            document.getElementById('todayVisitors').textContent = todayVisitors;
+            document.getElementById('totalUsers').textContent = formatNumber(totalUsers);
+            document.getElementById('globalHeat').textContent = formatHeat(globalHeat);
+        }
 
-        onlineUsersRef = database.ref('onlineUsers');
-        userRef = database.ref('onlineUsers/' + myConnectionId);
-        todayVisitorsRef = database.ref('stats/todayVisitors');
-
-        // 오늘 날짜
-        const today = new Date().toISOString().split('T')[0];
-        const dailyVisitorRef = database.ref('stats/dailyVisitors/' + today);
-
-        // 오늘 방문자 수 증가
-        dailyVisitorRef.transaction((current) => {
-            return (current || 0) + 1;
-        });
-
-        // 연결 상태
-        const connectedRef = database.ref('.info/connected');
-        connectedRef.on('value', (snapshot) => {
-            if (snapshot.val() === true) {
-                userRef.set({
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    online: true,
-                    heat: 0
-                });
-
-                userRef.onDisconnect().remove();
+        // 최근 채팅 메시지 로드
+        const chatResponse = await fetch(`${SERVER_URL}/api/chat/recent?limit=50`);
+        const chatData = await chatResponse.json();
+        
+        if (chatData.success) {
+            // 기존 메시지 제거
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            
+            // 메시지 추가
+            chatData.data.messages.forEach(msg => {
+                addChatMessage(msg.text, msg.timestamp);
+            });
+            
+            if (chatData.data.messages.length === 0) {
+                addChatMessage('채팅에서 따뜻한 메시지를 나눠보세요!', Date.now());
             }
-        });
-
-        // 온라인 사용자 수
-        onlineUsersRef.on('value', (snapshot) => {
-            const count = snapshot.numChildren();
-            document.getElementById('onlineUsers').textContent = count;
-        });
-
-        // 오늘 방문자 수
-        dailyVisitorRef.on('value', (snapshot) => {
-            const count = snapshot.val() || 0;
-            document.getElementById('todayVisitors').textContent = count;
-        });
-
+        }
     } catch (error) {
-        console.log('Presence 초기화 실패:', error);
-    }
-}
-
-function initializeGlobalStats() {
-    try {
-        globalStatsRef = database.ref('stats/globalHeat');
-
-        // 전 세계 누적 발열량 실시간 업데이트
-        globalStatsRef.on('value', (snapshot) => {
-            const heat = snapshot.val() || 0;
-            document.getElementById('globalHeat').textContent = formatHeat(heat);
-        });
-
-    } catch (error) {
-        console.log('Global stats 초기화 실패:', error);
-    }
-}
-
-function initializeChat() {
-    try {
-        chatRef = database.ref('chat').limitToLast(50);
-
-        chatRef.on('child_added', (snapshot) => {
-            const message = snapshot.val();
-            addChatMessage(message.text, message.timestamp);
-        });
-
-    } catch (error) {
-        console.log('Chat 초기화 실패:', error);
+        console.error('초기 데이터 로드 실패:', error);
     }
 }
 
@@ -190,16 +187,31 @@ function addChatMessage(text, timestamp) {
     }
 }
 
-function sendChatMessage() {
+async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
 
-    if (text && chatRef) {
-        chatRef.push({
-            text: text,
-            timestamp: firebase.database.ServerValue.TIMESTAMP
-        });
-        input.value = '';
+    if (text && socket && socket.connected) {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/chat/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId: myUserId,
+                    text: text,
+                    timestamp: Date.now()
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                input.value = '';
+            }
+        } catch (error) {
+            console.error('채팅 전송 실패:', error);
+        }
     }
 }
 
@@ -207,19 +219,36 @@ function updateMyHeat(operations) {
     // 연산 1000회당 약 0.01 칼로리로 가정
     const additionalHeat = operations / 100000;
     myHeatGenerated += additionalHeat;
+    heatUpdateQueue += additionalHeat;
 
     document.getElementById('myHeat').textContent = formatHeat(myHeatGenerated);
 
-    // Firebase에 내 발열량 업데이트
-    if (userRef) {
-        userRef.update({ heat: myHeatGenerated });
+    // 1초에 한 번씩만 서버에 전송 (네트워크 부하 감소)
+    const now = Date.now();
+    if (now - lastHeatUpdate >= 1000 && heatUpdateQueue > 0) {
+        sendHeatUpdate(heatUpdateQueue, operations);
+        heatUpdateQueue = 0;
+        lastHeatUpdate = now;
     }
+}
 
-    // 전 세계 발열량에 추가
-    if (globalStatsRef) {
-        globalStatsRef.transaction((current) => {
-            return (current || 0) + additionalHeat;
+async function sendHeatUpdate(heat, operations) {
+    if (!socket || !socket.connected) return;
+
+    try {
+        await fetch(`${SERVER_URL}/api/heat/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId: myUserId,
+                heatGenerated: heat,
+                operations: operations
+            })
         });
+    } catch (error) {
+        console.error('발열량 업데이트 실패:', error);
     }
 }
 
@@ -385,8 +414,14 @@ window.addEventListener('beforeunload', () => {
     if (isRunning) {
         stopWarmer();
     }
-    if (userRef) {
-        userRef.remove();
+    
+    // 남은 발열량 전송
+    if (heatUpdateQueue > 0 && socket && socket.connected) {
+        sendHeatUpdate(heatUpdateQueue, totalOperations);
+    }
+    
+    if (socket) {
+        socket.disconnect();
     }
 });
 
