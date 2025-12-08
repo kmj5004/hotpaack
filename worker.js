@@ -25,7 +25,7 @@ function runCPUIntensiveTask() {
         }
 
         // CPU 집약적인 계산 수행 (최적화 방지)
-        const iterations = intensity * 100000; // 조정된 반복 횟수
+        const iterations = intensity * 150000; // 반복 횟수 증가 (100000 → 150000)
 
         // 여러 작업을 병렬로 수행
         const tasks = [];
@@ -61,19 +61,19 @@ function runCPUIntensiveTask() {
             operationCount++;
 
             // 최적화 방지용 랜덤 분기
-            if (Math.random() > 0.95) {
-                fibonacci(15); // 피보나치 감소
+            if (Math.random() > 0.9) { // 0.95 → 0.9 (더 자주 실행)
+                fibonacci(18); // 15 → 18 (더 무겁게)
             }
 
-            // 행렬 연산 감소
-            if (i % 500 === 0) {
-                matrixMultiply(10);
+            // 행렬 연산 증가
+            if (i % 300 === 0) { // 500 → 300 (더 자주)
+                matrixMultiply(12); // 10 → 12 (크기 증가)
             }
         }
 
-        // 메인 스레드에 진행 상황 보고 (빈도 감소로 렉 방지)
+        // 메인 스레드에 진행 상황 보고 (빈도 조절)
         reportCounter++;
-        if (reportCounter >= 10) { // 10번에 1번만 보고
+        if (reportCounter >= 5) { // 5번에 1번 보고 (10 → 5)
             self.postMessage({
                 type: 'progress',
                 operations: operationCount
@@ -82,8 +82,9 @@ function runCPUIntensiveTask() {
             reportCounter = 0;
         }
 
-        // UI 블로킹 방지를 위한 지연 (더 긴 간격)
-        setTimeout(loop, 50); // 50ms 대기로 UI 스레드에 여유 제공
+        // UI 블로킹 방지를 위한 지연 - 프로덕션에서는 더 짧게
+        const delay = intensity >= 8 ? 0 : 10; // 높은 강도에서는 지연 없음
+        setTimeout(loop, delay);
     }
 
     loop();
